@@ -19,7 +19,7 @@ interface Apartment {
 }
 
 export default function RankingPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [hasVoted, setHasVoted] = useState<{ [email: string]: boolean }>({});
@@ -38,6 +38,8 @@ export default function RankingPage() {
   });
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    
     if (!user) {
       router.replace("/");
       return;
@@ -79,7 +81,7 @@ export default function RankingPage() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   const handleUpvote = async (email: string) => {
     if (hasVoted[email] || !user) return;
@@ -101,7 +103,7 @@ export default function RankingPage() {
   // Sort apartments by votes descending
   const sorted = [...apartments].sort((a, b) => b.votes - a.votes);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center p-4">
         <div className="w-full max-w-md bg-card p-6 rounded-lg shadow-md flex flex-col gap-4">

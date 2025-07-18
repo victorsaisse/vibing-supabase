@@ -1,10 +1,10 @@
+import { ApartmentPreview } from "@/components/ApartmentPreview";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import { ApartmentPreview } from "./ApartmentPreview";
 
 interface ApartmentModalProps {
   isOpen: boolean;

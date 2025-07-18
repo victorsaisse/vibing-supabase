@@ -3,7 +3,7 @@
 import { ApartmentPreview } from "@/components/ApartmentPreview";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { upsertApartment } from "@/lib/supabase";
+import { getApartments, upsertApartment } from "@/lib/supabase";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -33,18 +33,59 @@ const MIRRORS = [
 ];
 
 export default function CreatePage() {
-  const { user, setApartment } = useAuth();
+  const { user, setApartment, isLoading } = useAuth();
   const router = useRouter();
   const [leftWallColor, setLeftWallColor] = useState("#fbbf24"); // yellow default
   const [rightWallColor, setRightWallColor] = useState("#34d399"); // green default
   const [selectedSofa, setSelectedSofa] = useState(SOFAS[0]);
   const [selectedMirror, setSelectedMirror] = useState(MIRRORS[0]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isLoading) return; // Wait for auth to load
+    
     if (!user) {
       router.replace("/");
+      return;
     }
-  }, [user, router]);
+
+    // Load existing apartment data if available
+    const loadExistingApartment = async () => {
+      try {
+        // First check if user has apartment data in context
+        if (user.leftWallColor && user.rightWallColor && user.selectedSofa && user.selectedMirror) {
+          setLeftWallColor(user.leftWallColor);
+          setRightWallColor(user.rightWallColor);
+          setSelectedSofa(user.selectedSofa);
+          setSelectedMirror(user.selectedMirror);
+        } else {
+          // Load from database
+          const { data } = await getApartments();
+          const userApartment = data?.find(apt => apt.email === user.email);
+          if (userApartment) {
+            setLeftWallColor(userApartment.left_wall_color);
+            setRightWallColor(userApartment.right_wall_color);
+            setSelectedSofa(userApartment.selected_sofa);
+            setSelectedMirror(userApartment.selected_mirror);
+            
+            // Update context with loaded data
+            setApartment(
+              userApartment.left_wall_color,
+              userApartment.right_wall_color,
+              userApartment.selected_sofa,
+              userApartment.selected_mirror
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error loading apartment:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadExistingApartment();
+  }, [user, isLoading, router, setApartment]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +109,14 @@ export default function CreatePage() {
       router.push("/ranking");
     }
   };
+
+  if (isLoading || loading) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center p-4">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row justify-center items-start p-4 gap-8">
