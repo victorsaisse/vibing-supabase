@@ -3,6 +3,7 @@
 import { ApartmentPreview } from "@/components/ApartmentPreview";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { upsertApartment } from "@/lib/supabase";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -45,10 +46,27 @@ export default function CreatePage() {
     }
   }, [user, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Save to local context
     setApartment(leftWallColor, rightWallColor, selectedSofa, selectedMirror);
-    router.push("/ranking");
+    
+    // Save to Supabase
+    try {
+      await upsertApartment({
+        email: user!.email,
+        left_wall_color: leftWallColor,
+        right_wall_color: rightWallColor,
+        selected_sofa: selectedSofa,
+        selected_mirror: selectedMirror,
+      });
+      router.push("/ranking");
+    } catch (error) {
+      console.error("Error saving apartment:", error);
+      // Still navigate even if save fails (for demo purposes)
+      router.push("/ranking");
+    }
   };
 
   return (
