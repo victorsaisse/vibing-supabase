@@ -1,1 +1,1 @@
-# vibing-supabase
+vibing-supabase
