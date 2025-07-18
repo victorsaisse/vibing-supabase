@@ -4,7 +4,7 @@ import { ApartmentModal } from "@/components/ApartmentModal";
 import { ApartmentPreview } from "@/components/ApartmentPreview";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { getApartments, getUserVotes, subscribeToApartments, voteForApartment, type Apartment as SupabaseApartment } from "@/lib/supabase";
+import { getApartments, getUserVotes, removeVoteForApartment, subscribeToApartments, voteForApartment, type Apartment as SupabaseApartment } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -83,21 +83,61 @@ export default function RankingPage() {
     };
   }, [user, authLoading, router]);
 
-  const handleUpvote = async (email: string) => {
-    if (hasVoted[email] || !user) return;
+  const handleVoteToggle = async (email: string) => {
+    if (!user) return;
+    
+    const isCurrentlyVoted = hasVoted[email];
+    const voteChange = isCurrentlyVoted ? -1 : 1;
+    
+    // Optimistic update - update UI immediately
+    setHasVoted((prev) => ({ ...prev, [email]: !isCurrentlyVoted }));
+    setApartments((prev) =>
+      prev.map((a) =>
+        a.email === email ? { ...a, votes: a.votes + voteChange } : a
+      )
+    );
     
     try {
-      await voteForApartment(user.email, email);
-      setHasVoted((prev) => ({ ...prev, [email]: true }));
-      // The real-time subscription will update the vote count automatically
+      const result = isCurrentlyVoted 
+        ? await removeVoteForApartment(user.email, email)
+        : await voteForApartment(user.email, email);
+        
+      if (result.error) {
+        // Revert optimistic update on error
+        setHasVoted((prev) => ({ ...prev, [email]: isCurrentlyVoted }));
+        setApartments((prev) =>
+          prev.map((a) =>
+            a.email === email ? { ...a, votes: a.votes - voteChange } : a
+          )
+        );
+        console.error("Error toggling vote:", result.error);
+      }
     } catch (error) {
-      console.error("Error voting:", error);
+      // Revert optimistic update on error
+      setHasVoted((prev) => ({ ...prev, [email]: isCurrentlyVoted }));
+      setApartments((prev) =>
+        prev.map((a) =>
+          a.email === email ? { ...a, votes: a.votes - voteChange } : a
+        )
+      );
+      console.error("Error toggling vote:", error);
     }
   };
 
   const handleApartmentClick = (apartment: Apartment) => {
     setSelectedApartment(apartment);
     setIsModalOpen(true);
+  };
+
+  const refreshApartments = async () => {
+    try {
+      const { data } = await getApartments();
+      if (data) {
+        setApartments(data.map(convertApartment));
+      }
+    } catch (error) {
+      console.error("Error refreshing apartments:", error);
+    }
   };
 
   // Sort apartments by votes descending
@@ -118,12 +158,26 @@ export default function RankingPage() {
     <>
       <div className="min-h-screen flex flex-col justify-center items-center p-4">
         <div className="w-full max-w-md bg-card p-6 rounded-lg shadow-md flex flex-col gap-4">
-          <h1 className="text-2xl font-bold mb-4 text-center">Apartment Ranking</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-center flex-1">Apartment Ranking</h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshApartments}
+              className="ml-2"
+            >
+              🔄
+            </Button>
+          </div>
           <ul className="flex flex-col gap-3">
             {sorted.map((apt) => (
               <li
                 key={apt.email}
-                className="flex items-center gap-3 p-3 rounded-lg border bg-muted"
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                  hasVoted[apt.email] 
+                    ? "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800" 
+                    : "bg-muted"
+                }`}
               >
                 <button
                   className="w-16 h-16 border rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
@@ -142,11 +196,12 @@ export default function RankingPage() {
                 <span className="font-mono text-lg">{apt.votes}</span>
                 <Button
                   size="sm"
-                  variant="outline"
-                  disabled={hasVoted[apt.email] || apt.email === user?.email}
-                  onClick={() => handleUpvote(apt.email)}
+                  variant={hasVoted[apt.email] ? "default" : "outline"}
+                  disabled={apt.email === user?.email}
+                  onClick={() => handleVoteToggle(apt.email)}
+                  className={hasVoted[apt.email] ? "bg-green-600 hover:bg-green-700" : ""}
                 >
-                  ▲
+                  {hasVoted[apt.email] ? "▼" : "▲"}
                 </Button>
               </li>
             ))}

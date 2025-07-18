@@ -85,6 +85,9 @@ create policy "Anyone can read votes" on apartment_votes
 create policy "Users can insert votes" on apartment_votes
   for insert with check (true);
 
+create policy "Users can delete their own votes" on apartment_votes
+  for delete using (true);
+
 -- Create function to update apartment votes count
 create or replace function update_apartment_votes()
 returns trigger as $$

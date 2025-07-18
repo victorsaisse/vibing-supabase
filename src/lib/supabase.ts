@@ -56,14 +56,41 @@ export const getApartments = async () => {
 }
 
 export const voteForApartment = async (voterEmail: string, apartmentEmail: string) => {
+  console.log('Attempting to vote:', { voterEmail, apartmentEmail });
+  
   const { data, error } = await supabase
     .from('apartment_votes')
     .insert({
       voter_email: voterEmail,
       apartment_email: apartmentEmail
     })
+    .select()
   
-  if (error) console.error('Error voting:', error)
+  if (error) {
+    console.error('Error voting:', error);
+  } else {
+    console.log('Vote successful:', data);
+  }
+  
+  return { data, error }
+}
+
+export const removeVoteForApartment = async (voterEmail: string, apartmentEmail: string) => {
+  console.log('Attempting to remove vote:', { voterEmail, apartmentEmail });
+  
+  const { data, error } = await supabase
+    .from('apartment_votes')
+    .delete()
+    .eq('voter_email', voterEmail)
+    .eq('apartment_email', apartmentEmail)
+    .select()
+  
+  if (error) {
+    console.error('Error removing vote:', error);
+  } else {
+    console.log('Vote removal successful:', data);
+  }
+  
   return { data, error }
 }
 
@@ -79,14 +106,24 @@ export const getUserVotes = async (voterEmail: string) => {
 
 export const subscribeToApartments = (callback: (apartments: Apartment[]) => void) => {
   return supabase
-    .channel('apartments')
+    .channel('apartments_channel')
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'apartments' },
-      async () => {
-        const { data } = await getApartments()
-        if (data) callback(data)
+      { 
+        event: '*', 
+        schema: 'public', 
+        table: 'apartments' 
+      },
+      async (payload) => {
+        console.log('Real-time update received:', payload);
+        const { data } = await getApartments();
+        if (data) {
+          console.log('Updating apartments:', data.length);
+          callback(data);
+        }
       }
     )
-    .subscribe()
+    .subscribe((status) => {
+      console.log('Subscription status:', status);
+    });
 }
