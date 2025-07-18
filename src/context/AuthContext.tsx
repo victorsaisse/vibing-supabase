@@ -1,19 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { createContext, ReactNode, useContext, useState } from "react";
 
 interface User {
   email: string;
-  apartmentName?: string;
-  color?: string;
+  leftWallColor?: string;
+  rightWallColor?: string;
+  selectedSofa?: string;
+  selectedMirror?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string) => void;
   logout: () => void;
-  setApartment: (apartmentName: string, color: string) => void;
+  setApartment: (leftWallColor: string, rightWallColor: string, selectedSofa: string, selectedMirror: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,8 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push("/");
   };
 
-  const setApartment = (apartmentName: string, color: string) => {
-    setUser((prev) => prev ? { ...prev, apartmentName, color } : null);
+  const setApartment = (leftWallColor: string, rightWallColor: string, selectedSofa: string, selectedMirror: string) => {
+    setUser((prev) => prev ? { ...prev, leftWallColor, rightWallColor, selectedSofa, selectedMirror } : null);
   };
 
   return (
